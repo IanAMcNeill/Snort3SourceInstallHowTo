@@ -1,0 +1,279 @@
+This is a simple guide to install snort3.
+
+Why am I making this?
+
+I haad enough headaches getting snort3 to work on my machine that I felt it was possible others might have issues as well. The problem I was facing the most was actually building from source and getting the application to execute properly. After three days of trying to get it to work, I finally managed to understand enough to install and execute properly. This is not only to be a reminder for me when I need it but also a guide for others who were lost and gave up on trying to use the source version of the project. 
+
+My goal is to help others that may have had issues finding answers. Even if this helps one person, that is enough for me. This only covers the basic install, not the extra plugins/options.
+
+**I am assuming anyone who reads this has simple knowledge of how to use terminal and know the dangers of doing things as root if you decide to do so. I did but it was to make the process easier while I troubleshot what I was doing wrong. Do so at your own risk. If you are not using root, then use sudo ...** 
+
+
+
+START: 
+
+First things first.
+>> apt update
+>> apt upgrade
+
+Once this is finished, move on.
+
+
+
+Go to snort.org and follow the instructions to download from github.
+
+>> git clone https://github.com/snort3/libdaq
+>> git clone https://github.com/snort3.git
+
+
+
+Next we need to ensure we have all the Dependencies needed for libdaq/snort3. Since we are building from source, we need the DEV versions of the dependencies, or else we will get errors saying we do not have the proper install files to continue.
+______________________________________________________________________________________
+Here are the dependencies and their DEV names to download ( name :: "download_name" ) : 
+
+- cmake 	:: cmake ( This may be already on your system. )
+- Snort3 Libdaq for Packet I/O ( The git we just cloned. )
+- dumbnet 	:: "libdumbnet-dev" ( Referred to as dnet in the documentation. )
+- flex 		:: flex ( 2.6.0 or highter )
+- g++ 		:: g++ ( 5 or higher / other C++ 14 Compiler )
+- hwloc 	:: "libhwloc-dev" 
+- LuaJIT 	:: "libluajit-5.1-dev"
+- OpenSSL 	:: "libssl-dev"
+- pcap 		:: "libpcap-dev"
+- pcre 		:: "libpcre3-dev"
+- pkgconfig 	:: "pkg-config"
+- zlib 		:: "liblzma-dev"
+
+-------------------------------------------------------------------------------------- 
+
+
+First we will install the Libdaq files needed to run snort3. 
+
+Beginning from starting directory:
+
+>> cd libdaq
+>> ./bootstrap
+
+IF you want a specific directory for snort3 or you are using snort2 and you want to keep them separate then do the following: 
+
+>> ./configure --prefix=/usr/local/lib/daq_s3
+>> make install
+
+BEFORE YOU DO ANYTHING ELSE!!! [Do the following to create a file that tells the system where to look for the cusotm file location.]
+
+>> cat /etc/ld.so.conf/libdaq3.conf > /usr/local/lib/daq_s3/lib/
+>> ldconfig
+
+( This method will put your libdaq files into a directory under your library files with a specific end directory called 'daq_s3' >  /usr/local/lib/daq_s3 )
+
+IF you want to let the system install it in its defautlt directory just do the following.
+
+>> ./configure
+>> make install
+>> ldconfig
+
+( This method will place your libdaq files into a directory under your library files >  /usr/local/lib/ )
+
+Next we have to install Snort3. This is where it initially got complicated and I could not find a proper method of explaining what I was doing wrong to get it to work. I hope these next steps help.
+
+The instructions state we can decide to install snort to a predetermined directory or under the default.
+
+For predetermined :
+>> export my_path=/path/to/snorty ( This can be anything. I am doing snort3_path=/usr/bin/snort )
+>> mkdir -p my_path 	 	  
+>> cd snort3
+_____________________________________________________________________
+EXAMPLE: 
+
+export snort3_path=/usr/bin/snort
+mkdir -p my_path
+cd snort3
+---------------------------------------------------------------------
+
+
+:: Sidebar ::
+
+AT THIS POINT the export path is initialized for this terminal instance. If you close the terminal it will disappear. All you need to do is either,
+	1) Don't close your terminal
+ or 
+	2) recreate the export path above. 
+
+:: end sidebar ::
+
+
+
+Since we are not using the default directory, we need to include extra tags...
+
+>> ./configure_cmake.sh --prefix=$my_path --with-daq-includes=/usr/local/lib/daq_s3/include \ 
+>> --with-daq-libraries=/usr/local/lib/daq_s3/lib/
+
+______________________________________________________________________
+EXAMPLE:
+
+./configure_cmake.sh --prefix=$snort3_path --with-daq-includes=/usr/local/lib/daq_s3/include/ \
+--with-daq-libraries=/usr/local/lib/daq_s3/lib/
+
+______________________________________________________________________
+IF you are installing with default paths : 
+
+>>./configure_cmake.sh
+>>cd build
+>>make -j $(nproc) ( This step may take a while )
+>> make install
+
+Now we should have the build files compiled and ready to install.
+
+>> cd build
+>> make -j $(nproc) ( This step may take a while )
+>> make install
+
+
+( So here we come to the crux of why I made this HowTo. ) 
+
+According to the documentation:
+
+"If all goes well, run snort -V at the command line to verify successfull installation."
+But you may notice if you run this command you may receive either: 
+
+>> zsh: permission denied: snort ( This is if you chose to install to a particular path ) 
+OR 
+>> Command 'snort' not found, did you mean: ... ( This is if you installed using the default path )
+
+FOR ZSH: PERMISSION DENIED ( If you installed to default directories go below )
+
+IF you installed to a custom path it is still saved in your terminal instance as:
+>> export $my_path=/usr/bin/snort3 
+
+------------------------------------------------------------------------
+EXAMPLE:
+export $snort3_path=/usr/bin/snort3
+------------------------------------------------------------------------
+
+Now we have to make this permanent or else we will have to export every time we boot into our OS. 
+
+Open the config file for Z-shell in VIM or any text edior of your choice. Just replace vim with Gedit/nano/etc.
+
+>>vim ~/.zshrc
+
+Scroll down to the bottom and add the following: 
+
+>> # Add SNORT to PATH
+>> export my_path=/usr/bin/snort
+>>
+>> # Custom Aliases "aliases can only be commands, not paths!!!"
+>>
+>> # Snort3 Aliases
+>> alias snort3="$my_path/bin/snort" # Executes 'snort' file.
+>> 
+>>
+-------------------------------------------------------------------------
+EXAMPLE:
+
+# Add SNORT to PATH
+export snort3_path=/usr/bin/snort
+
+# Custom Aliases "aliases can only be commands, not paths!!!"
+
+# Snort3 Aliases
+alias snort3="$snort3_path/bin/snort" # Executes 'snort' file
+
+:wq
+------------------------------------------------------------------------
+
+
+What we have done above is add a permanent path called ' my_path ' leading to where the snort executable is located. Then we added a special alias to make it easier to call $snort3_path... as 'snort3'
+
+Now we need to update our Z-shell source: 
+
+type: 
+>> source ~/.zshrc
+
+
+Now you should be able to enter the commands. 
+------------------------------------------------------------------------------------
+>> snort3 -V 
+
+   ,,_     -*> Snort++ <*-
+  o"  )~   Version 3.1.70.0
+   ''''    By Martin Roesch & The Snort Team
+           http://snort.org/contact#team
+           Copyright (C) 2014-2023 Cisco and/or its affiliates. All rights reserved.
+           Copyright (C) 1998-2013 Sourcefire, Inc., et al.
+           Using DAQ version 3.0.12
+           Using LuaJIT version 2.1.0-beta3
+           Using OpenSSL 3.0.10 1 Aug 2023
+           Using libpcap version 1.10.4 (with TPACKET_V3)
+           Using PCRE version 8.39 2016-06-14
+           Using ZLIB version 1.2.13
+           Using LZMA version 5.4.1
+-----------------------------------------------------------------------------------
+
+
+If you received the error "command 'snort' cannot be found' it is because there is no designated path to the file. We have to create one manually. 
+
+open ~/.zshrc in you favorite text editor.
+
+>> vim ~/.zshrc 
+
+Go to the bottom and add the following:
+
+>> # Add SNORT to PATH
+>> export my_path=/usr/local/snort/bin
+>>
+>> # Custom Aliases "aliases are commands, not paths!!!"
+>>
+>> # Snort3 Aliases
+>> snort3="$my_path/snort"
+>>
+>>
+
+-----------------------------------------------------------------------------------
+EXAMPLE:
+
+# Add SNORT to PATH
+export snort3_path=/usr/local/snort/bin
+
+# Custom Aliases "aliases are commands, not paths!"
+
+# Snort3 Aliases
+snort3="$snort3_path/snort"
+
+:wq
+-----------------------------------------------------------------------------------
+
+back at terminal we need to refresh our sources so the commands can take effect.
+
+type: 
+
+>> source ~/.zshrc 
+
+
+Now type snort3 -V and you should see the following; 
+
+-------------------------------------------------------------------------------------
+snort3 -V
+
+   ,,_     -*> Snort++ <*-
+  o"  )~   Version 3.1.70.0
+   ''''    By Martin Roesch & The Snort Team
+           http://snort.org/contact#team
+           Copyright (C) 2014-2023 Cisco and/or its affiliates. All rights reserved.
+           Copyright (C) 1998-2013 Sourcefire, Inc., et al.
+           Using DAQ version 3.0.12
+           Using LuaJIT version 2.1.0-beta3
+           Using OpenSSL 3.0.10 1 Aug 2023
+           Using libpcap version 1.10.4 (with TPACKET_V3)
+           Using PCRE version 8.39 2016-06-14
+           Using ZLIB version 1.2.13
+           Using LZMA version 5.4.1
+------------------------------------------------------------------------------------
+
+
+
+I hope this helps anyone out there that was having issues figuring out how to get snort to work from source. While I have made this guide, this is not all-inclusive to every distro. I have only tested this on Kali, if you are running any other OS/distro these instructions may be different.
+
+I do not have anything to do with the SNORT project, I was just trying to get it to work so I could continue with the Linux Basics for Hackers book by OccupytheWeb. 
+
+If you have any questions about what I did please feel free to reach out and I can help as best I can. Please support the projecet creator when possible. 
+
+- MrSeeks 
